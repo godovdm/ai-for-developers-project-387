@@ -6,6 +6,10 @@
     "node_modules/**",
     ".browser-cache/**",
     ".worktrees/**",
+    // Скиллы агента — внешние инструкции с шаблонными плейсхолдерами вроде
+    // <issue-template>: это не документация проекта, поэтому markdownlint
+    // их не проверяет.
+    ".agents/skills/**",
     "**/dist/**",
     "test-results/**",
     "playwright-report/**",

@@ -1,0 +1,98 @@
+name: opencode
+
+# Интерактивный агент OpenCode 2: запускается командой в комментарии issue или
+# pull request и отвечает в том же треде. Токена GitHub App в OpenCode 2 нет,
+# поэтому ответ публикуется от github-actions[bot] правами из блока permissions.
+on:
+  issue_comment:
+    types: [created]
+  pull_request_review_comment:
+    types: [created]
+
+concurrency:
+  group: opencode-${{ github.event.issue.number || github.event.pull_request.number }}
+  cancel-in-progress: false
+
+jobs:
+  opencode:
+    # Комментировать публичный репозиторий может кто угодно, поэтому job
+    # запускается только по комментарию сопровождающего и с командой в тексте.
+    # Комментарии ботов игнорируются, чтобы агент не отвечал сам себе.
+    if: |
+      github.event.comment.user.type != 'Bot' &&
+      contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.comment.author_association) &&
+      (startsWith(github.event.comment.body, '/oc') ||
+       startsWith(github.event.comment.body, '/opencode') ||
+       contains(github.event.comment.body, ' /oc') ||
+       contains(github.event.comment.body, ' /opencode'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+
+      - name: Install project tools
+        uses: jdx/mise-action@v2
+
+      - name: Install OpenCode
+        # Версия закреплена: CLI в CI не должен меняться между запусками.
+        run: npm install --global @opencode/cli@2.3.0
+
+      - name: Connect OpenCode Go
+        env:
+          OPENCODE_GO_API_KEY: ${{ secrets.OPENCODE_GO_API_KEY }}
+        run: |
+          printf '[{"id":"cred_ci_opencode_go","integrationID":"opencode-go","label":"API key","active":true,"value":{"type":"key","key":"%s"}}]' \
+            "$OPENCODE_GO_API_KEY" | opencode auth import --standalone
+
+      - name: Check out pull request branch
+        if: github.event.issue.pull_request != null || github.event.pull_request != null
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh pr checkout ${{ github.event.issue.number || github.event.pull_request.number }}
+
+      - name: Run OpenCode
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ISSUE: ${{ github.event.issue.number || github.event.pull_request.number }}
+          COMMENT: ${{ github.event.comment.body }}
+          REVIEW_PATH: ${{ github.event.comment.path }}
+          REVIEW_LINE: ${{ github.event.comment.line }}
+        run: |
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          gh auth setup-git
+
+          PROMPT=$(cat <<EOF
+          Ты — агент OpenCode в репозитории $GITHUB_REPOSITORY.
+          Запрос пришёл комментарием в issue или pull request #$ISSUE:
+          $COMMENT
+
+          Если комментарий оставлен к строке диффа, речь о файле $REVIEW_PATH,
+          строка $REVIEW_LINE — учитывай это при разборе.
+
+          Порядок работы:
+          - Прочитай AGENTS.md, затем документы из docs/agents по теме задачи.
+          - Обсуждение задачи читай командой gh issue view $ISSUE --comments,
+            изменения pull request — командой gh pr diff.
+          - В .agents/skills лежат скиллы to-spec, to-tickets и implement-spec.
+            Подключай их по имени, если задача про спецификацию, тикеты или реализацию.
+          - Ответ публикуй комментарием в тот же тред:
+            gh issue comment $ISSUE --body-file <файл>.
+          - Если нужны правки кода: новая ветка, коммит и gh pr create;
+            для pull request — коммит в его ветку.
+          - Файл .github/workflows/hexlet-check.yml не изменяй.
+          - Перед push запусти mise --locked run check:docs; если менял код —
+            mise --locked run check и добейся успешного результата.
+          EOF
+          )
+
+          opencode run --standalone --auto \
+            --model opencode-go/deepseek-v4.1-flash \
+            "$PROMPT"

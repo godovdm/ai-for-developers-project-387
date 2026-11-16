@@ -187,6 +187,34 @@ JAVA_HOME="$(/usr/libexec/java_home)" \
 
 Автоматическая проверка Хекслета запускается через [workflow](.github/workflows/hexlet-check.yml). Его файл и имя репозитория сохраняются без изменений.
 
+## OpenCode в GitHub Actions
+
+Воркфлоу [opencode](.github/workflows/opencode.yml) запускает агента OpenCode в
+GitHub Actions по команде в комментарии. Агент разбирает задачу, отвечает в том
+же треде, а при необходимости готовит ветку и pull request.
+
+- **События:** `issue_comment` и `pull_request_review_comment`, только
+  `types: [created]`: правка комментария запуск не повторяет.
+- **Кто запускает:** авторы с ролью `OWNER`, `MEMBER` или `COLLABORATOR`.
+  Комментарии ботов игнорируются, поэтому агент не отвечает сам себе.
+- **Команды:** `/oc` или `/opencode` в начале комментария либо после пробела.
+- **Модель:** `opencode-go/deepseek-v4.1-flash`. Ключ провайдера хранится
+  в секрете `OPENCODE_GO_API_KEY` и подключается шагом `opencode auth import`.
+- **Права:** `contents: write`, `issues: write` и `pull-requests: write`.
+  Токена GitHub App в OpenCode 2 нет, поэтому ответ публикуется от
+  `github-actions[bot]`.
+- **Лимиты:** таймаут job — 30 минут; `concurrency` на issue или PR:
+  одновременно выполняется один запуск, следующий ждёт в очереди, текущий
+  не отменяется.
+- **Скиллы:** `to-spec`, `to-tickets` и `implement-spec` лежат в
+  `.agents/skills`, поэтому на раннере доступен тот же набор, что и локально.
+  Глобальные скиллы с машины на раннер не попадают.
+
+**Результат.** Агент отвечает комментарием в том же треде, при необходимости
+создаёт ветку и pull request. Статус и логи запуска — на вкладке Actions,
+workflow `opencode`. Чтобы остановить текущий запуск, отмените его на вкладке
+Actions; чтобы отключить будущие — выключите workflow.
+
 ## Выпуск версии
 
 Release Please запускается после изменений в `main` и вручную через Actions →
