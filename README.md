@@ -200,6 +200,11 @@ GitHub Actions по команде в комментарии. Агент раз�
 - **Команды:** `/oc` или `/opencode` в начале комментария либо после пробела.
 - **Модель:** `opencode-go/deepseek-v4.1-flash`. Ключ провайдера хранится
   в секрете `OPENCODE_GO_API_KEY` и подключается шагом `opencode auth import`.
+- **Версия CLI:** шаг `Install OpenCode` ставит закреплённую версию
+  `@opencode/cli@2.3.0`, чтобы CLI в CI не менялся между запусками.
+- **Комментарии к строке диффа:** шаг `Check out pull request branch`
+  переключает рабочую копию на ветку pull request командой `gh pr checkout`,
+  поэтому для `pull_request_review_comment` агент видит код из PR, а не `main`.
 - **Права:** `contents: write`, `issues: write` и `pull-requests: write`.
   Токена GitHub App в OpenCode 2 нет, поэтому ответ публикуется от
   `github-actions[bot]`.
