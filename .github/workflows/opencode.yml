@@ -30,7 +30,6 @@ jobs:
     permissions:
       contents: write
       issues: write
-      pull-requests: write
     steps:
       - name: Check out repository
         uses: actions/checkout@v6
@@ -85,8 +84,9 @@ jobs:
             Подключай их по имени, если задача про спецификацию, тикеты или реализацию.
           - Ответ публикуй комментарием в тот же тред:
             gh issue comment $ISSUE --body-file <файл>.
-          - Если нужны правки кода: новая ветка, коммит и gh pr create;
-            для pull request — коммит в его ветку.
+          - Если нужны правки кода: новая ветка, коммит и push, затем дай ссылку
+            на compare. Pull request не открывай — его создаёт человек.
+            Для pull request — коммит в его ветку.
           - Файл .github/workflows/hexlet-check.yml не изменяй.
           - Перед push запусти mise --locked run check:docs; если менял код —
             mise --locked run check и добейся успешного результата.
