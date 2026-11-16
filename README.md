@@ -191,7 +191,7 @@ JAVA_HOME="$(/usr/libexec/java_home)" \
 
 Воркфлоу [opencode](.github/workflows/opencode.yml) запускает агента OpenCode в
 GitHub Actions по команде в комментарии. Агент разбирает задачу, отвечает в том
-же треде, а при необходимости готовит ветку и pull request.
+же треде, а при необходимости готовит ветку с изменениями.
 
 - **События:** `issue_comment` и `pull_request_review_comment`, только
   `types: [created]`: правка комментария запуск не повторяет.
@@ -205,9 +205,12 @@ GitHub Actions по команде в комментарии. Агент раз�
 - **Комментарии к строке диффа:** шаг `Check out pull request branch`
   переключает рабочую копию на ветку pull request командой `gh pr checkout`,
   поэтому для `pull_request_review_comment` агент видит код из PR, а не `main`.
-- **Права:** `contents: write`, `issues: write` и `pull-requests: write`.
-  Токена GitHub App в OpenCode 2 нет, поэтому ответ публикуется от
-  `github-actions[bot]`.
+- **Права:** `contents: write` и `issues: write`. Токена GitHub App в OpenCode 2
+  нет, поэтому ответ публикуется от `github-actions[bot]`.
+- **Pull request:** агент открывает только ветку и даёт ссылку на compare, а pull
+  request создаёт человек. Поэтому в правах нет `pull-requests: write`, и
+  воркфлоу не зависит от настройки «Allow GitHub Actions to create and approve
+  pull requests».
 - **Лимиты:** таймаут job — 30 минут; `concurrency` на issue или PR:
   одновременно выполняется один запуск, следующий ждёт в очереди, текущий
   не отменяется.
@@ -216,7 +219,8 @@ GitHub Actions по команде в комментарии. Агент раз�
   Глобальные скиллы с машины на раннер не попадают.
 
 **Результат.** Агент отвечает комментарием в том же треде, при необходимости
-создаёт ветку и pull request. Статус и логи запуска — на вкладке Actions,
+создаёт ветку и даёт ссылку на compare, а правки в существующий pull request
+пушит в его ветку. Статус и логи запуска — на вкладке Actions,
 workflow `opencode`. Чтобы остановить текущий запуск, отмените его на вкладке
 Actions; чтобы отключить будущие — выключите workflow.
 
