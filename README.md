@@ -1,39 +1,210 @@
-# Календарь звонков (продолжение)
+# Календарь встреч
 
+[![hexlet-check](https://github.com/godovdm/ai-for-developers-project-386/actions/workflows/hexlet-check.yml/badge.svg)](https://github.com/godovdm/ai-for-developers-project-386/actions)
 
-[![hexlet-check](https://github.com/godovdm/ai-for-developers-project-387/actions/workflows/hexlet-check.yml/badge.svg)](https://github.com/godovdm/ai-for-developers-project-387/actions)
+Небольшой сервис для записи на звонок к одному заранее заданному владельцу календаря. Владелец предлагает типы встреч, а гость без регистрации выбирает свободное время и бронирует его.
 
-Интегрируйте работу агентов в GitHub проект
+**Состояние проекта:** владелец создаёт типы встреч и видит предстоящие записи, а гость выбирает свободное время и записывается.
 
-Учебный проект Хекслета: https://ru.hexlet.io/programs/ai-for-developers
-Как это должно работать: https://files.hexlet.app/a/2ipc5m
+Демо: [Календарь встреч](https://hexlet-calendar-godov.onrender.com).
 
-## Стек
+## Сценарии
 
-- Разное
+- Владелец создаёт тип встречи с названием, описанием и длительностью и видит список предстоящих записей всех типов.
+- Гость выбирает тип встречи, день и свободное время, вводит имя и email, затем получает подтверждение записи на экране.
+- Редактирование и удаление типов встреч, отмена и перенос записей, отправка писем и создание ссылок на видеозвонок не входят в первую версию.
 
-## Установка
+Авторизации нет. Страница владельца и её API доступны любому посетителю, включая список записей с именами и email гостей. Эти данные публичны, поэтому для демонстрации используйте только тестовые данные.
 
-<!-- Опишите установку: клонирование, зависимости, переменные окружения -->
+## Страницы
 
-```bash
-git clone https://github.com/godovdm/ai-for-developers-project-387.git
-cd ai-for-developers-project-387
+- `/` — главная для гостя: вводный блок, возможности и список доступных типов встреч с переходом к выбору времени.
+- `/owner` — страница владельца: форма создания типа встречи, список созданных типов и предстоящие записи.
+- `/meeting-types/:id` — выбранный тип встречи, выбор даты и времени и запись гостя.
+
+Все страницы открыты без авторизации.
+
+## API
+
+- `GET /api/health` — проверка доступности сервера.
+- `GET /api/v1/meeting-types` — список типов встреч в поле `items`.
+- `GET /api/v1/meeting-types/{id}` — тип встречи по идентификатору.
+- `POST /api/v1/meeting-types` — создание типа с вручную введённым `id`, названием, описанием и длительностью 30, 60, 90 или 120 минут. При ошибке валидации возвращается `400`, при повторном `id` — `409`.
+- `GET /api/v1/bookings` — предстоящие записи всех типов с данными гостя в поле `items`.
+
+Проверка API после запуска сервера:
+
+```sh
+curl -i -X POST http://localhost:8080/api/v1/meeting-types -H 'Content-Type: application/json' -d '{"id":"intro","name":"Знакомство","description":"","durationMinutes":30}'
+curl -i http://localhost:8080/api/v1/meeting-types
 ```
 
-## Использование
+Пользовательские типы встреч хранятся в памяти процесса и сбрасываются при
+перезапуске. При каждом старте сервер создаёт два встроенных типа встреч на 30
+и 60 минут.
 
-<!-- Добавьте примеры запуска и запись asciinema — именно это смотрит работодатель -->
+## Правила записи
 
----
+| Правило | Значение |
+| --- | --- |
+| Владелец | Один, задан заранее |
+| Часовой пояс | `Europe/Moscow` |
+| Окно записи | 14 календарных дней, начиная с завтрашнего дня по времени владельца |
+| Рабочее время | Понедельник–пятница, 10:00–18:00 |
+| Длительность типа встречи | 30, 60, 90 или 120 минут |
+| Шаг доступного начала | 30 минут |
 
-<details>
-<summary>Автоматические тесты Хекслета</summary>
+Встреча должна целиком помещаться в рабочее время. Два интервала не могут пересекаться даже для разных типов встреч; частичное наложение тоже запрещено. Следующая встреча может начинаться точно в момент окончания предыдущей. Сервер проверяет это правило при создании записи, в том числе для одновременных запросов. Окно записи сдвигается каждый день по времени владельца.
 
-Тесты запускаются на каждый коммит. За запуск отвечает файл `.github/workflows/hexlet-check.yml` — не удаляйте и не переименовывайте ни его, ни репозиторий.
+## Планируемый стек и структура
 
-</details>
+- **Backend:** Go, стандартный `net/http`; бизнес-правила и данные в памяти одного процесса.
+- **Frontend:** React, TypeScript, Vite и Mantine.
+- **Контракт API:** TypeSpec → OpenAPI → сгенерированный TypeScript SDK для фронтенда (`typescript-fetch`).
+- **Серверный код API:** `oapi-codegen` генерирует Go-типы и маршруты из OpenAPI; обработчики реализуют бизнес-правила.
+- **Развёртывание:** один экземпляр Go-сервера отдаёт API и собранный фронтенд с одного адреса.
 
-## О Хекслете
+```text
+api/
+  main.tsp                 # исходный контракт
+  generated/openapi.yaml   # сгенерированная спецификация
+backend/
+  cmd/server/              # запуск сервера
+  internal/                # логика записи и HTTP-обработчики
+  internal/api/generated/  # Go-код из OpenAPI
+frontend/
+  src/                     # экраны гостя и владельца
+  src/api/generated/       # TypeScript SDK из OpenAPI
+docs/adr/                  # значимые архитектурные решения, когда появятся
+GLOSSARY.md                # термины предметной области
+```
 
-[Хекслет](https://ru.hexlet.io/) — школа программирования: авторские программы обучения с практикой, поддержкой наставников и реальными проектами, которые остаются в резюме. Этот репозиторий — один из таких проектов.
+Каталоги в схеме появятся по мере реализации. TypeSpec — источник истины для API; сгенерированные OpenAPI, SDK и Go-код не редактируются вручную. Версии генераторов зафиксированы; для строгой проверки TypeScript к сгенерированному SDK автоматически применяется скрипт совместимости `scripts/patch-sdk.mjs`.
+
+Для генерации и проверки артефактов после изменения TypeSpec:
+
+```sh
+mise exec -- tsp compile api --output-dir api/generated
+(cd backend && mise exec -- go run github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@v2.5.1 -generate types,std-http-server -package generated ../api/generated/openapi.yaml > internal/api/generated/api.gen.go)
+mise exec -- openapi-generator-cli generate -i api/generated/openapi.yaml -g typescript-fetch -o frontend/src/api/generated --additional-properties=supportsES6=true,typescriptThreePlus=true --global-property apis,models,supportingFiles=runtime.ts:index.ts
+node scripts/patch-sdk.mjs frontend/src/api/generated/runtime.ts
+mise exec -- sh scripts/check-generated.sh
+```
+
+## Ограничения
+
+Данные хранятся в памяти одного процесса. Перезапуск сервера сбрасывает
+пользовательские типы встреч и записи, после чего заново создаёт встроенные типы
+на 30 и 60 минут. Для соблюдения правила уникальности бронирования приложение
+развёртывается в одном экземпляре; запуск нескольких независимых экземпляров с
+отдельной памятью не предусмотрен.
+
+Приложение отвечает за запись на время, а не за проведение звонка. Внешние календари и сервисы видеосвязи не подключаются.
+
+## Разработка и запуск
+
+### Развёртывание на Render
+
+Render собирает `Dockerfile` из ветки `main` и запускает один экземпляр
+приложения. Сервер слушает порт из переменной `PORT`, которую задаёт платформа.
+На бесплатном тарифе первое открытие после простоя может занять время.
+Пользовательские типы встреч и записи исчезают при перезапуске или повторном
+развёртывании, а встроенные типы на 30 и 60 минут создаются заново; используйте
+только тестовые данные.
+
+В `.mcp.json` задан адрес [Render MCP](https://render.com/docs/mcp-server) для совместимых клиентов. Для подключения в Codex:
+
+1. Выполните `codex mcp add render --url https://mcp.render.com/mcp --oauth-client-id codex`.
+2. Завершите авторизацию Render в браузере и выберите нужный workspace.
+3. Попросите агента проверить сервис или выполнить развёртывание. Учётные данные и токены не добавляйте в репозиторий.
+
+### Запуск в Docker
+
+Соберите образ и запустите контейнер из корня проекта:
+
+```sh
+docker build -t meeting-calendar .
+docker run --rm -p 8080:8080 meeting-calendar
+```
+
+Приложение доступно на `http://localhost:8080`, проверка сервера — на
+`http://localhost:8080/api/health`. Пользовательские типы встреч и записи
+пропадают при остановке контейнера, а встроенные типы на 30 и 60 минут
+создаются заново при следующем запуске. Остановить сервер можно с помощью
+`Ctrl+C`.
+
+### Локальная разработка
+
+Понадобятся [mise](https://mise.jdx.dev/getting-started) и Java для генератора
+OpenAPI. Установите инструменты и зависимости, затем соберите клиент:
+
+```sh
+mise install
+mise exec -- pnpm install --frozen-lockfile
+mise exec -- pnpm build
+```
+
+Запустите сервер из каталога `backend`:
+
+```sh
+cd backend
+mise exec -- go run ./cmd/server
+```
+
+Приложение доступно на `http://localhost:8080`, а служебный метод — на
+`http://localhost:8080/api/health`. Для разработки клиента отдельно запустите
+`mise exec -- pnpm dev`: Vite перенаправляет запросы `/api` на Go-сервер.
+
+Чтобы выполнить все проверки, сначала установите браузеры Playwright:
+
+```sh
+mise exec -- pnpm exec playwright install chromium firefox webkit
+mise run check
+```
+
+В Linux браузерам могут понадобиться системные зависимости: используйте
+`playwright install --with-deps`. Проверка генерации API, аудит зависимостей и
+проверка уязвимостей Go требуют подключения к сети. Состав проверок описан в
+[документе о проверках](docs/quality-gates.md).
+
+На macOS Firefox может завершаться с ошибкой `Could not find profile folder`,
+если у запущенного из терминала браузера нет доступа к общему каталогу данных
+Firefox. В этом случае запустите проверки с отдельным домашним каталогом для
+системных API macOS. Явный `JAVA_HOME` позволяет генератору API найти Java:
+
+```sh
+mkdir -p /private/tmp/calendar-firefox-home
+JAVA_HOME="$(/usr/libexec/java_home)" \
+  CFFIXED_USER_HOME=/private/tmp/calendar-firefox-home \
+  mise --locked run check
+```
+
+Подробнее об ошибке: [обсуждение в Playwright](https://github.com/microsoft/playwright/issues/42768).
+
+## Проект
+
+Учебный проект [Хекслета](https://ru.hexlet.io/programs/ai-for-developers). [Исходное описание задания](https://files.hexlet.app/a/2ipc5m).
+
+Автоматическая проверка Хекслета запускается через [workflow](.github/workflows/hexlet-check.yml). Его файл и имя репозитория сохраняются без изменений.
+
+## Выпуск версии
+
+Release Please запускается после изменений в `main` и вручную через Actions →
+`release-please` → Run workflow. Для работы добавьте в секреты Actions
+репозитория `RELEASE_PLEASE_TOKEN`: fine-grained personal access token с доступом
+к этому репозиторию и правами Contents, Issues и Pull requests на чтение и запись.
+В Settings → Actions → General разрешите GitHub Actions создавать pull request.
+Токен владельца нужен, чтобы для release PR запускались проверки GitHub Actions,
+включая проверку Хекслета; встроенный `GITHUB_TOKEN` их не запускает.
+
+1. Вливайте изменения в `main` с сообщениями Conventional Commits: `feat:`,
+   `fix:` и при необходимости `!` или `BREAKING CHANGE:` для несовместимых изменений.
+2. Workflow создаст или обновит release PR с версией, `CHANGELOG.md` и изменениями
+   `package.json`. Начальная версия в `.release-please-manifest.json` — `0.1.0`.
+3. Проверьте содержимое release PR и успешное выполнение проверок, включая
+   `mise --locked run check`, затем влейте PR в `main`.
+4. Следующий запуск workflow создаст Git-тег и GitHub Release с описанием изменений.
+   Публикация в npm и развёртывание приложения этим workflow не выполняются.
+
+Подробнее о настройке и ограничениях токена — в
+[документации release-please-action](https://github.com/googleapis/release-please-action#github-credentials).

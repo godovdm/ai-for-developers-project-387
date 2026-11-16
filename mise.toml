@@ -1,0 +1,47 @@
+[tools]
+node = "22.21.0"
+actionlint = "1.7.12"
+hk = "2.11.1"
+"aqua:betterleaks/betterleaks" = "1.9.0"
+"github:agent-sh/agnix" = "0.60.3"
+"npm:markdownlint-cli2" = "0.24.0"
+go = "1.26.11"
+"npm:pnpm" = "10.20.0"
+golangci-lint = "2.12.2"
+
+[settings]
+node.mirror_url = "https://npmmirror.com/mirrors/node/"
+
+[tasks.check]
+description = "Run every quality gate for the project"
+depends = ["check:docs", "check:secrets", "check:agents", "check:api", "check:backend", "check:frontend", "check:e2e"]
+run = "true"
+
+[tasks."check:docs"]
+description = "Check documentation and GitHub Actions workflows"
+run = "markdownlint-cli2 '**/*.md' '.github/**/*.md' && actionlint"
+
+[tasks."check:secrets"]
+description = "Scan tracked history and the working tree for secrets"
+run = "betterleaks git --redact --no-banner && betterleaks dir --redact --no-banner ."
+
+[tasks."check:agents"]
+description = "Validate agent instructions"
+run = "agnix --strict ."
+
+[tasks."check:api"]
+description = "Check TypeSpec, OpenAPI and generated code"
+run = "./node_modules/.bin/tsp format --check 'api/**/*.tsp' && ./node_modules/.bin/redocly lint --extends recommended-strict api/generated/openapi.yaml && sh scripts/check-generated.sh"
+
+[tasks."check:backend"]
+description = "Check and test the Go server"
+run = "sh scripts/check-backend.sh"
+
+[tasks."check:frontend"]
+description = "Check and build the frontend"
+run = "./node_modules/.bin/prettier --check frontend/index.html frontend/src && ./node_modules/.bin/eslint frontend/src --max-warnings 0 && pnpm typecheck && pnpm test && pnpm build && pnpm audit --audit-level high"
+
+[tasks."check:e2e"]
+description = "Run browser smoke tests against the built application"
+depends = ["check:frontend"]
+run = "pnpm e2e"
