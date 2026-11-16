@@ -41,3 +41,10 @@ Read `docs/agents/triage-labels.md` when assigning triage roles.
 
 Use a single-context layout: root `GLOSSARY.md` and `docs/adr/`.
 Read `docs/agents/domain.md` before exploring domain concepts or decisions.
+
+### GitHub agent
+
+The agent in GitHub Actions runs the same skills and instructions as the local
+one: the workflow is `.github/workflows/opencode.yml`, and project skills live in
+`.agents/skills`. Keep the commands in this file runnable on a clean runner —
+the workflow installs project tools with mise before the agent starts.
