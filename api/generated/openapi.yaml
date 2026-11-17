@@ -47,12 +47,20 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiError'
+        '401':
+          description: Access is unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorV1'
       requestBody:
         required: true
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/CreateMeetingTypeRequest'
+      security:
+        - OwnerSession: []
   /api/v1/bookings:
     post:
       operationId: createBooking
@@ -106,6 +114,14 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiErrorV1'
+        '401':
+          description: Access is unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorV1'
+      security:
+        - OwnerSession: []
   /api/v1/meeting-types:
     get:
       operationId: listMeetingTypesV1
@@ -141,6 +157,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiErrorV1'
+        '401':
+          description: Access is unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorV1'
         '409':
           description: The request conflicts with the current state of the server.
           content:
@@ -153,6 +175,8 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/CreateMeetingTypeV1Request'
+      security:
+        - OwnerSession: []
   /api/v1/meeting-types/{id}:
     get:
       operationId: getMeetingTypeV1
@@ -211,6 +235,50 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiErrorV1'
+  /api/v1/owner/session:
+    get:
+      operationId: getOwnerSession
+      summary: Get the owner session state
+      parameters: []
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OwnerSessionStatus'
+    post:
+      operationId: createOwnerSession
+      summary: Start an owner session
+      parameters: []
+      responses:
+        '204':
+          description: 'There is no content to send for this request, but the headers may be useful. '
+        '400':
+          description: The server could not understand the request due to invalid syntax.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorV1'
+        '401':
+          description: Access is unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorV1'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OwnerLoginRequest'
+    delete:
+      operationId: deleteOwnerSession
+      summary: End the owner session
+      parameters: []
+      responses:
+        '204':
+          description: 'There is no content to send for this request, but the headers may be useful. '
 security:
   - {}
 components:
@@ -396,6 +464,28 @@ components:
           type: string
         durationMinutes:
           $ref: '#/components/schemas/MeetingDuration'
+    OwnerLoginRequest:
+      type: object
+      required:
+        - password
+      properties:
+        password:
+          type: string
+          description: Owner password from the server configuration.
+      description: Owner credentials supplied at sign-in.
+    OwnerSessionStatus:
+      type: object
+      required:
+        - required
+        - authenticated
+      properties:
+        required:
+          type: boolean
+          description: Whether owner operations require a session in this deployment.
+        authenticated:
+          type: boolean
+          description: Whether the client has a valid owner session.
+      description: Owner session state visible to the client.
     UpcomingBooking:
       type: object
       required:
@@ -422,6 +512,11 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/UpcomingBooking'
+  securitySchemes:
+    OwnerSession:
+      type: apiKey
+      in: cookie
+      name: owner_session
 servers:
   - url: /
     description: Same origin as the application

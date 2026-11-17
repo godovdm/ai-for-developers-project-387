@@ -17,7 +17,7 @@ export function AppHeader({ path }: AppHeaderProps) {
   const colorScheme = useComputedColorScheme("light", {
     getInitialValueInEffect: false,
   });
-  const ownerView = path === "/owner";
+  const ownerView = path === "/owner" || path === "/owner/login";
 
   return (
     <Box

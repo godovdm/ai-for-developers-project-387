@@ -26,6 +26,8 @@ import type {
   MeetingType,
   MeetingTypeListV1,
   MeetingTypeV1,
+  OwnerLoginRequest,
+  OwnerSessionStatus,
   UpcomingBookingList,
 } from '../models/index';
 import {
@@ -51,6 +53,10 @@ import {
     MeetingTypeListV1ToJSON,
     MeetingTypeV1FromJSON,
     MeetingTypeV1ToJSON,
+    OwnerLoginRequestFromJSON,
+    OwnerLoginRequestToJSON,
+    OwnerSessionStatusFromJSON,
+    OwnerSessionStatusToJSON,
     UpcomingBookingListFromJSON,
     UpcomingBookingListToJSON,
 } from '../models/index';
@@ -65,6 +71,10 @@ export interface CreateMeetingTypeOperationRequest {
 
 export interface CreateMeetingTypeV1OperationRequest {
     createMeetingTypeV1Request: CreateMeetingTypeV1Request;
+}
+
+export interface CreateOwnerSessionRequest {
+    ownerLoginRequest: OwnerLoginRequest;
 }
 
 export interface GetAvailabilityRequest {
@@ -200,6 +210,72 @@ export class DefaultApi extends runtime.BaseAPI {
     }
 
     /**
+     * Start an owner session
+     */
+    async createOwnerSessionRaw(requestParameters: CreateOwnerSessionRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<void>> {
+        if (requestParameters['ownerLoginRequest'] == null) {
+            throw new runtime.RequiredError(
+                'ownerLoginRequest',
+                'Required parameter "ownerLoginRequest" was null or undefined when calling createOwnerSession().'
+            );
+        }
+
+        const queryParameters: any = {};
+
+        const headerParameters: runtime.HTTPHeaders = {};
+
+        headerParameters['Content-Type'] = 'application/json';
+
+
+        let urlPath = `/api/v1/owner/session`;
+
+        const response = await this.request({
+            path: urlPath,
+            method: 'POST',
+            headers: headerParameters,
+            query: queryParameters,
+            body: OwnerLoginRequestToJSON(requestParameters['ownerLoginRequest']),
+        }, initOverrides);
+
+        return new runtime.VoidApiResponse(response);
+    }
+
+    /**
+     * Start an owner session
+     */
+    async createOwnerSession(requestParameters: CreateOwnerSessionRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<void> {
+        await this.createOwnerSessionRaw(requestParameters, initOverrides);
+    }
+
+    /**
+     * End the owner session
+     */
+    async deleteOwnerSessionRaw(initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<void>> {
+        const queryParameters: any = {};
+
+        const headerParameters: runtime.HTTPHeaders = {};
+
+
+        let urlPath = `/api/v1/owner/session`;
+
+        const response = await this.request({
+            path: urlPath,
+            method: 'DELETE',
+            headers: headerParameters,
+            query: queryParameters,
+        }, initOverrides);
+
+        return new runtime.VoidApiResponse(response);
+    }
+
+    /**
+     * End the owner session
+     */
+    async deleteOwnerSession(initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<void> {
+        await this.deleteOwnerSessionRaw(initOverrides);
+    }
+
+    /**
      * List available starts for a meeting type
      */
     async getAvailabilityRaw(requestParameters: GetAvailabilityRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<Availability>> {
@@ -307,6 +383,35 @@ export class DefaultApi extends runtime.BaseAPI {
      */
     async getMeetingTypeV1(requestParameters: GetMeetingTypeV1Request, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<MeetingTypeV1> {
         const response = await this.getMeetingTypeV1Raw(requestParameters, initOverrides);
+        return await response.value();
+    }
+
+    /**
+     * Get the owner session state
+     */
+    async getOwnerSessionRaw(initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<OwnerSessionStatus>> {
+        const queryParameters: any = {};
+
+        const headerParameters: runtime.HTTPHeaders = {};
+
+
+        let urlPath = `/api/v1/owner/session`;
+
+        const response = await this.request({
+            path: urlPath,
+            method: 'GET',
+            headers: headerParameters,
+            query: queryParameters,
+        }, initOverrides);
+
+        return new runtime.JSONApiResponse(response, (jsonValue) => OwnerSessionStatusFromJSON(jsonValue));
+    }
+
+    /**
+     * Get the owner session state
+     */
+    async getOwnerSession(initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<OwnerSessionStatus> {
+        const response = await this.getOwnerSessionRaw(initOverrides);
         return await response.value();
     }
 

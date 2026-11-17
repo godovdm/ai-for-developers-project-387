@@ -27,6 +27,7 @@ type server struct {
 	meetingTypes meeting.Repository
 	v1           *meeting.Memory
 	now          func() time.Time
+	owner        OwnerAccess
 }
 
 // New returns the calendar API handler.
@@ -36,6 +37,19 @@ func New() http.Handler {
 
 // NewWithDefaults returns the calendar handler with built-in meeting types.
 func NewWithDefaults() http.Handler {
+	return NewWithOwnerAccess(OwnerAccess{})
+}
+
+// NewWithOwnerAccess returns the handler with built-in meeting types and the
+// supplied owner access configuration. An empty password keeps the
+// demonstration mode.
+func NewWithOwnerAccess(access OwnerAccess) http.Handler {
+	return NewWithDefaultsAndClockAndOwnerAccess(time.Now, access)
+}
+
+// NewWithDefaultsAndClockAndOwnerAccess returns the handler with built-in
+// meeting types, the supplied clock and owner access configuration.
+func NewWithDefaultsAndClockAndOwnerAccess(now func() time.Time, access OwnerAccess) http.Handler {
 	store := meeting.NewMemory()
 	for _, meetingType := range []meeting.Type{
 		{
@@ -58,25 +72,35 @@ func NewWithDefaults() http.Handler {
 
 	return newHandler(
 		store,
-		time.Now,
+		now,
+		access,
 	)
 }
 
 // NewWithClock returns the calendar handler using the supplied clock.
 func NewWithClock(now func() time.Time) http.Handler {
+	return NewWithClockAndOwnerAccess(now, OwnerAccess{})
+}
+
+// NewWithClockAndOwnerAccess returns the calendar handler using the supplied
+// clock and owner access configuration.
+func NewWithClockAndOwnerAccess(now func() time.Time, access OwnerAccess) http.Handler {
 	store := meeting.NewMemory()
 	return newHandler(
 		store,
 		now,
+		access,
 	)
 }
 
-func newHandler(store *meeting.Memory, now func() time.Time) http.Handler {
-	return generated.Handler(server{
+func newHandler(store *meeting.Memory, now func() time.Time, access OwnerAccess) http.Handler {
+	s := server{
 		meetingTypes: store,
 		v1:           store,
 		now:          now,
-	})
+		owner:        access,
+	}
+	return s.ownerGuard(generated.Handler(s))
 }
 
 func (server) GetHealth(w http.ResponseWriter, _ *http.Request) {

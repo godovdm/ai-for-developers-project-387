@@ -3,10 +3,12 @@ import { AppHeader } from "./components/AppHeader";
 import { usePath } from "./router";
 import { GuestPage } from "./pages/GuestPage";
 import { MeetingTypePage } from "./pages/MeetingTypePage";
+import { OwnerLoginPage } from "./pages/OwnerLoginPage";
 import { OwnerPage } from "./pages/OwnerPage";
 
 function renderPage(path: string) {
   if (path === "/" || path === "") return <GuestPage />;
+  if (path === "/owner/login") return <OwnerLoginPage />;
   if (path === "/owner") return <OwnerPage />;
   const match = /^\/meeting-types\/([^/]+)$/.exec(path);
   const id = match?.[1];

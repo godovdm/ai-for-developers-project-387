@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { loginOwner, loginOwnerRequest } from "./support";
 
 test("owner sees a booking made by a guest", async ({
   page,
@@ -8,7 +9,7 @@ test("owner sees a booking made by a guest", async ({
   const name = `Встреча ${testInfo.project.name}`;
   const guest = `Гость ${testInfo.project.name}`;
   const email = `${testInfo.project.name}@example.com`;
-  await page.goto("/owner");
+  await loginOwner(page);
   await page.getByLabel("ID").fill(id);
   await page.getByLabel("Название").fill(name);
   await page.getByLabel("Описание").fill("Знакомство");
@@ -53,6 +54,7 @@ for (const outcome of ["confirmed", "conflict"] as const) {
     page,
     request,
   }, testInfo) => {
+    await loginOwnerRequest(request);
     const id = `refresh-${outcome}-${testInfo.project.name}`;
     const created = await request.post("/api/v1/meeting-types", {
       data: {
@@ -130,6 +132,7 @@ test("guest calendar refreshes at Moscow midnight and on return", async ({
   page,
   request,
 }, testInfo) => {
+  await loginOwnerRequest(request);
   const id = `midnight-${testInfo.project.name}`;
   const created = await request.post("/api/v1/meeting-types", {
     data: {
@@ -165,6 +168,7 @@ test("guest calendar refreshes after the system clock changes", async ({
   page,
   request,
 }, testInfo) => {
+  await loginOwnerRequest(request);
   const id = `clock-change-${testInfo.project.name}`;
   const created = await request.post("/api/v1/meeting-types", {
     data: {

@@ -13,5 +13,7 @@ export * from './MeetingDuration';
 export * from './MeetingType';
 export * from './MeetingTypeListV1';
 export * from './MeetingTypeV1';
+export * from './OwnerLoginRequest';
+export * from './OwnerSessionStatus';
 export * from './UpcomingBooking';
 export * from './UpcomingBookingList';

@@ -1,11 +1,12 @@
 import { expect, test } from "@playwright/test";
+import { loginOwner } from "./support";
 
 test("owner creates a meeting type and the guest sees it", async ({
   page,
 }, testInfo) => {
   const name = `Вводный звонок ${testInfo.project.name}`;
 
-  await page.goto("/owner");
+  await loginOwner(page);
   await page.getByLabel("ID").fill(`intro-${testInfo.project.name}`);
   await page.getByLabel("Название").fill(name);
   await page.getByLabel("Описание").fill("Знакомство с командой");
