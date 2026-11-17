@@ -12,8 +12,16 @@ import (
 )
 
 func main() {
+	access := server.OwnerAccess{
+		Password:      os.Getenv("OWNER_PASSWORD"),
+		SessionSecret: os.Getenv("OWNER_SESSION_SECRET"),
+	}
+	if !access.Enabled() {
+		log.Print("WARNING: OWNER_PASSWORD is not set; owner operations are unprotected (demonstration mode)")
+	}
+
 	mux := http.NewServeMux()
-	mux.Handle("/api/", server.NewWithDefaults())
+	mux.Handle("/api/", server.NewWithOwnerAccess(access))
 	dir := os.Getenv("FRONTEND_DIR")
 	if dir == "" {
 		dir = "../frontend/dist"
