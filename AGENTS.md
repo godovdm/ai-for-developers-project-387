@@ -15,6 +15,7 @@
 - Используй субагентов для исследования кодовой базы
 - Сообщения коммитов оформляй по Conventional Commits: `type(scope): описание` (scope необязателен).
 - Перед завершением изменений запускай `mise --locked run check` и добивайся успешного результата.
+- Если на macOS Firefox завершается с `Could not find profile folder`, создай `/private/tmp/calendar-firefox-home` и запусти проверку с `JAVA_HOME="$(/usr/libexec/java_home)" CFFIXED_USER_HOME=/private/tmp/calendar-firefox-home mise --locked run check`.
 - Не редактируй вручную сгенерированные `mise.lock` и `.mise/locks/`.
 - Не отключай правила проверок ради прохождения: узкое исключение с причиной требует решения человека.
 
