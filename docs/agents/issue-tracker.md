@@ -8,6 +8,8 @@ Issues and specs live in GitHub Issues for
 - Verify the target: `gh repo view --json nameWithOwner`.
 - Create: `gh issue create --title "..." --body-file <path>`.
   Write multiline bodies to a temporary file.
+- For a ticket ready for an agent, create it with the label in the same command:
+  `gh issue create --title "..." --body-file <path> --label ready-for-agent`.
 - Read: `gh issue view <number> --json number,title,body,labels,comments`.
 - List: `gh issue list --state open --json number,title,labels`.
   Add label and state filters as needed.
