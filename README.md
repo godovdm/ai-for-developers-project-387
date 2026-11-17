@@ -217,59 +217,51 @@ JAVA_HOME="$(/usr/libexec/java_home)" \
 
 ## OpenCode в GitHub Actions
 
-Воркфлоу [opencode](.github/workflows/opencode.yml) запускает агента OpenCode в
-GitHub Actions по команде в комментарии. Агент разбирает задачу, отвечает в том
-же треде, а при необходимости готовит ветку с изменениями.
+[Интерактивный агент](.github/workflows/opencode.yml) запускается по команде
+`/oc` или `/opencode` в общем или построчном комментарии от владельца,
+участника организации или collaborator. Агент отвечает в обсуждении, может
+открыть PR и вносит правки в его ветку по команде человека. Для комментария к
+строке ему передаются путь, номер строки и окружающий diff. PR из fork не
+обрабатываются: секрет модели и доступ на запись доступны только для веток
+этого репозитория. Коммиты должны соответствовать Conventional Commits.
 
-- **События:** `issue_comment` и `pull_request_review_comment`, только
-  `types: [created]`: правка комментария запуск не повторяет.
-- **Кто запускает:** авторы с ролью `OWNER`, `MEMBER` или `COLLABORATOR`.
-  Комментарии ботов игнорируются, поэтому агент не отвечает сам себе.
-- **Команды:** `/oc` или `/opencode` в начале комментария либо после пробела.
-- **Модель:** `opencode-go/deepseek-v4.1-flash`. Ключ провайдера хранится
-  в секрете `OPENCODE_GO_API_KEY` и подключается шагом `opencode auth import`.
-- **Версия CLI:** шаг `Install OpenCode` ставит закреплённую версию
-  `@opencode/cli@2.3.0`, чтобы CLI в CI не менялся между запусками.
-- **Комментарии к строке диффа:** шаг `Check out pull request branch`
-  переключает рабочую копию на ветку pull request командой `gh pr checkout`,
-  поэтому для `pull_request_review_comment` агент видит код из PR, а не `main`.
-- **Права:** `contents: write` и `issues: write`. Токена GitHub App в OpenCode 2
-  нет, поэтому ответ публикуется от `github-actions[bot]`.
-- **Pull request:** агент открывает только ветку и даёт ссылку на compare, а pull
-  request создаёт человек. Поэтому в правах нет `pull-requests: write`, и
-  воркфлоу не зависит от настройки «Allow GitHub Actions to create and approve
-  pull requests».
-- **Лимиты:** таймаут job — 30 минут; `concurrency` на issue или PR:
-  одновременно выполняется один запуск, следующий ждёт в очереди, текущий
-  не отменяется.
-- **Скиллы:** `to-spec`, `to-tickets` и `implement-spec` лежат в
-  `.agents/skills`, поэтому на раннере доступен тот же набор, что и локально.
-  Глобальные скиллы с машины на раннер не попадают.
+[Авторевью](.github/workflows/pr-review.yml) запускается отдельно при открытии,
+обновлении или повторном открытии PR в основную ветку. Оно допускает PR
+доверенных авторов и `github-actions[bot]` только из этого репозитория. OpenCode
+читает diff и базовую ветку с запрещёнными командами и изменениями файлов;
+отдельный шаг публикует замечания. Описание PR, его комментарии и связанные
+задачи с обсуждениями передаются провайдеру модели для проверки соответствия
+плану. Учитываются до 100 задач текущего репозитория, связанных с закрытием PR;
+простые ссылки и задачи других репозиториев не загружаются. Решение о правках
+и слиянии принимает человек.
+Новый запуск отменяет устаревшее ревью того же PR. Авторевью использует
+бесплатную модель `cohere/north-mini-code:free` через OpenRouter и
+секрет `OPENROUTER_API_KEY`; интерактивный агент использует OpenCode Go и секрет
+`OPENCODE_GO_API_KEY`. Оба workflow используют `@opencode/cli@2.3.0`.
 
-**Результат.** Агент отвечает комментарием в том же треде, при необходимости
-создаёт ветку и даёт ссылку на compare, а правки в существующий pull request
-пушит в его ветку. Статус и логи запуска — на вкладке Actions,
-workflow `opencode`. Чтобы остановить текущий запуск, отмените его на вкладке
-Actions; чтобы отключить будущие — выключите workflow.
+Для создания PR через `GITHUB_TOKEN` включите **Allow GitHub Actions to create
+and approve pull requests** в Settings → Actions → General → Workflow
+permissions. PR, созданный `GITHUB_TOKEN`, может потребовать ручного
+подтверждения запуска workflow; проверьте вкладку Actions и PR, если ревью или
+проверки не стартовали. Issue, созданное этим токеном, обычно не запускает
+`issues` workflow; GitHub App может иметь другое поведение.
 
 ## Выпуск версии
 
-Release Please запускается после изменений в `main` и вручную через Actions →
-`release-please` → Run workflow. Для работы добавьте в секреты Actions
-репозитория `RELEASE_PLEASE_TOKEN`: fine-grained personal access token с доступом
-к этому репозиторию и правами Contents, Issues и Pull requests на чтение и запись.
-В Settings → Actions → General разрешите GitHub Actions создавать pull request.
-Токен владельца нужен, чтобы для release PR запускались проверки GitHub Actions,
-включая проверку Хекслета; встроенный `GITHUB_TOKEN` их не запускает.
+[Release Please](.github/workflows/release-please.yml) запускается после push в
+`main` и вручную через Actions → `release-please` → Run workflow. Он использует
+`GITHUB_TOKEN` и требует описанного выше разрешения Actions на создание PR.
+Если создание PR завершилось ошибкой из-за настройки, включите её и повторите
+неуспешный запуск. Проверки созданного release PR могут требовать ручного
+подтверждения.
 
-1. Вливайте изменения в `main` с сообщениями Conventional Commits: `feat:`,
-   `fix:` и при необходимости `!` или `BREAKING CHANGE:` для несовместимых изменений.
-2. Workflow создаст или обновит release PR с версией, `CHANGELOG.md` и изменениями
-   `package.json`. Начальная версия в `.release-please-manifest.json` — `0.1.0`.
-3. Проверьте содержимое release PR и успешное выполнение проверок, включая
-   `mise --locked run check`, затем влейте PR в `main`.
-4. Следующий запуск workflow создаст Git-тег и GitHub Release с описанием изменений.
-   Публикация в npm и развёртывание приложения этим workflow не выполняются.
+1. Вливайте изменения с сообщениями Conventional Commits (`feat:`, `fix:` и
+   при необходимости `!` или `BREAKING CHANGE:`). При squash проверьте итоговое
+   сообщение, обычно формируемое из заголовка PR.
+2. Workflow создаст или обновит release PR с changelog и предложенной версией.
+   Текущая версия указана в `.release-please-manifest.json`.
+3. Проверьте release PR и результаты CI, затем влейте его вручную. Следующий
+   запуск создаст тег и GitHub Release; публикация в npm не выполняется.
 
-Подробнее о настройке и ограничениях токена — в
+Подробнее об ограничениях токена — в
 [документации release-please-action](https://github.com/googleapis/release-please-action#github-credentials).

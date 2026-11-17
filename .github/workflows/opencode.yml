@@ -30,11 +30,25 @@ jobs:
     permissions:
       contents: write
       issues: write
+      pull-requests: write
     steps:
       - name: Check out repository
         uses: actions/checkout@v6
         with:
           fetch-depth: 1
+
+      - name: Verify pull request source
+        if: github.event.issue.pull_request != null || github.event.pull_request != null
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.issue.number || github.event.pull_request.number }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          HEAD_REPOSITORY=$(gh pr view "$PR_NUMBER" --json headRepositoryOwner,headRepository --jq '.headRepositoryOwner.login + "/" + .headRepository.name')
+          if [ "$HEAD_REPOSITORY" != "$REPOSITORY" ]; then
+            echo "Pull requests from forks are not supported."
+            exit 1
+          fi
 
       - name: Install project tools
         uses: jdx/mise-action@v2
@@ -63,6 +77,7 @@ jobs:
           COMMENT: ${{ github.event.comment.body }}
           REVIEW_PATH: ${{ github.event.comment.path }}
           REVIEW_LINE: ${{ github.event.comment.line }}
+          REVIEW_DIFF: ${{ github.event.comment.diff_hunk }}
         run: |
           git config --global user.name 'github-actions[bot]'
           git config --global user.email '41898282+github-actions[bot]@users.noreply.github.com'
@@ -74,7 +89,8 @@ jobs:
           $COMMENT
 
           Если комментарий оставлен к строке диффа, речь о файле $REVIEW_PATH,
-          строка $REVIEW_LINE — учитывай это при разборе.
+          строка $REVIEW_LINE. Окружающий diff:
+          $REVIEW_DIFF
 
           Порядок работы:
           - Прочитай AGENTS.md, затем документы из docs/agents по теме задачи.
@@ -85,7 +101,7 @@ jobs:
           - Ответ публикуй комментарием в тот же тред:
             gh issue comment $ISSUE --body-file <файл>.
           - Если нужны правки кода: новая ветка, коммит и push, затем дай ссылку
-            на compare. Pull request не открывай — его создаёт человек.
+            на pull request, который открой командой gh pr create.
             Для pull request — коммит в его ветку.
           - Файл .github/workflows/hexlet-check.yml не изменяй.
           - Перед push запусти mise --locked run check:docs; если менял код —
