@@ -1,0 +1,65 @@
+name: PR head browser evidence
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, ready_for_review]
+
+permissions:
+  contents: read
+
+jobs:
+  browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out exact PR head
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+
+      - name: Record and verify checkout
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          mkdir -p browser-evidence
+          git rev-parse HEAD | tee browser-evidence/sha.txt
+          test "$(cat browser-evidence/sha.txt)" = "$EXPECTED_SHA"
+
+      - name: Install project tools
+        uses: jdx/mise-action@v2
+
+      - name: Install dependencies and build application
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm build
+          pnpm exec playwright install --with-deps chromium
+
+      - name: Run browser scenarios with traces
+        env:
+          PLAYWRIGHT_JSON_OUTPUT_NAME: browser-evidence/results.json
+        run: |
+          set -o pipefail
+          pnpm exec playwright test e2e/owner-auth.spec.ts e2e/booking-flow.spec.ts \
+            --project=chromium --workers=1 --trace=on --reporter=list,json \
+            2>&1 | tee browser-evidence/output.txt
+
+      - name: Record job result
+        if: always()
+        env:
+          JOB_STATUS: ${{ job.status }}
+        run: |
+          mkdir -p browser-evidence
+          printf 'Job status: %s\n' "$JOB_STATUS" > browser-evidence/status.txt
+          printf '%s\n' 'Issues: https://github.com/godovdm/ai-for-developers-project-387/issues/5 https://github.com/godovdm/ai-for-developers-project-387/issues/11' >> browser-evidence/status.txt
+          printf '%s\n' 'Scenarios: owner login and protected booking flow; unauthenticated access and rejected API requests.' >> browser-evidence/status.txt
+
+      - name: Upload SHA, results and traces
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pr-head-browser-${{ github.event.pull_request.head.sha }}-${{ github.run_attempt }}
+          path: |
+            browser-evidence/
+            test-results/
+          if-no-files-found: error
