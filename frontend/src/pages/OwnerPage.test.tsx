@@ -36,6 +36,14 @@ it("creates a meeting type and refreshes the list", async () => {
     if (url.endsWith("/api/v1/meeting-types") && method === "GET") {
       return Promise.resolve(jsonResponse({ items: meetingTypes }));
     }
+    if (url.endsWith("/api/v1/owner/session") && method === "GET") {
+      return Promise.resolve(
+        jsonResponse({ required: false, authenticated: true }),
+      );
+    }
+    if (url.endsWith("/api/v1/bookings") && method === "GET") {
+      return Promise.resolve(jsonResponse({ items: [] }));
+    }
     return Promise.resolve(jsonResponse({ message: "not found" }, 404));
   });
   vi.stubGlobal("fetch", fetchMock);
@@ -81,12 +89,15 @@ it("creates a meeting type and refreshes the list", async () => {
 it("shows the server validation message and keeps the list unchanged", async () => {
   const fetchMock = vi.fn<typeof fetch>().mockImplementation((input, init) => {
     const method = init?.method ?? "GET";
-    if (
-      requestUrl(input).endsWith("/api/v1/meeting-types") &&
-      method === "POST"
-    ) {
+    const url = requestUrl(input);
+    if (url.endsWith("/api/v1/meeting-types") && method === "POST") {
       return Promise.resolve(
         jsonResponse({ message: "Название не может быть пустым" }, 400),
+      );
+    }
+    if (url.endsWith("/api/v1/owner/session") && method === "GET") {
+      return Promise.resolve(
+        jsonResponse({ required: false, authenticated: true }),
       );
     }
     return Promise.resolve(jsonResponse({ items: [] }));

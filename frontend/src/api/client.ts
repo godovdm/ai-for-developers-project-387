@@ -1,7 +1,13 @@
 import { DefaultApi } from "./generated/apis/DefaultApi";
 import { Configuration, ResponseError } from "./generated/runtime";
 
-export const api = new DefaultApi(new Configuration({ basePath: "" }));
+export const api = new DefaultApi(
+  new Configuration({ basePath: "", credentials: "same-origin" }),
+);
+
+export function isUnauthorizedError(error: unknown): boolean {
+  return error instanceof ResponseError && error.response.status === 401;
+}
 
 export async function readErrorMessage(
   error: unknown,

@@ -16,10 +16,12 @@ import {
   Title,
 } from "@mantine/core";
 import { useEffect, useState, type SyntheticEvent } from "react";
-import { api, readErrorMessage } from "../api/client";
+import { api, isUnauthorizedError, readErrorMessage } from "../api/client";
 import type { UpcomingBooking } from "../api/generated/models/UpcomingBooking";
 import { MeetingDuration } from "../api/generated/models/MeetingDuration";
 import { useMeetingTypes } from "../hooks/useMeetingTypes";
+import { useOwnerSession } from "../hooks/useOwnerSession";
+import { navigate } from "../router";
 
 const DURATION_OPTIONS: { value: string; label: string }[] = [
   { value: String(MeetingDuration.NUMBER_30), label: "30 минут" },
@@ -42,6 +44,50 @@ function parseDuration(value: string): MeetingDuration {
 }
 
 export function OwnerPage() {
+  const { state: session, reload: reloadSession } = useOwnerSession();
+
+  useEffect(() => {
+    if (
+      session.status === "ready" &&
+      session.required &&
+      !session.authenticated
+    ) {
+      navigate("/owner/login");
+    }
+  }, [session]);
+
+  if (session.status === "loading") {
+    return (
+      <Center py="xl">
+        <Loader aria-label="Проверка сессии" />
+      </Center>
+    );
+  }
+
+  if (session.status === "error") {
+    return (
+      <Container size="sm" py="xl">
+        <Alert color="red" title="Не удалось проверить сессию">
+          <Button variant="default" onClick={reloadSession}>
+            Попробовать снова
+          </Button>
+        </Alert>
+      </Container>
+    );
+  }
+
+  if (session.required && !session.authenticated) {
+    return (
+      <Center py="xl">
+        <Loader aria-label="Переход на страницу входа" />
+      </Center>
+    );
+  }
+
+  return <OwnerContent demo={!session.required} />;
+}
+
+function OwnerContent({ demo }: { demo: boolean }) {
   const { state, reload } = useMeetingTypes();
   const [bookings, setBookings] = useState<UpcomingBooking[] | null>(null);
   const [bookingError, setBookingError] = useState(false);
@@ -51,8 +97,13 @@ export function OwnerPage() {
       (result) => {
         if (active) setBookings(result.items);
       },
-      () => {
-        if (active) setBookingError(true);
+      (cause: unknown) => {
+        if (!active) return;
+        if (isUnauthorizedError(cause)) {
+          navigate("/owner/login");
+          return;
+        }
+        setBookingError(true);
       },
     );
     return () => {
@@ -87,15 +138,45 @@ export function OwnerPage() {
       setDuration(MeetingDuration.NUMBER_60);
       reload();
     } catch (cause) {
+      if (isUnauthorizedError(cause)) {
+        navigate("/owner/login");
+        return;
+      }
       setError(await readErrorMessage(cause, "Не удалось создать тип встречи"));
     } finally {
       setSubmitting(false);
     }
   };
 
+  const handleLogout = async () => {
+    try {
+      await api.deleteOwnerSession();
+    } catch {
+      // The owner area is closed locally even when the request fails.
+    }
+    navigate("/owner/login");
+  };
+
   return (
     <Container size="lg" py="xl">
       <Stack gap="xl">
+        {demo && (
+          <Alert color="yellow" title="Демонстрационный режим">
+            Пароль не настроен, защита владельческих операций выключена.
+          </Alert>
+        )}
+        {!demo && (
+          <Group justify="flex-end">
+            <Button
+              variant="default"
+              onClick={() => {
+                void handleLogout();
+              }}
+            >
+              Выйти
+            </Button>
+          </Group>
+        )}
         <Paper withBorder p="lg" radius="md">
           <form
             onSubmit={(event) => {
