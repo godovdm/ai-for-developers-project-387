@@ -206,8 +206,10 @@ JAVA_HOME="$(/usr/libexec/java_home)" \
 плану. Учитываются до 100 задач текущего репозитория, связанных с закрытием PR;
 простые ссылки и задачи других репозиториев не загружаются. Решение о правках
 и слиянии принимает человек.
-Новый запуск отменяет устаревшее ревью того же PR. Оба workflow используют
-секрет `OPENCODE_GO_API_KEY` и закреплённый `@opencode/cli@2.3.0`.
+Новый запуск отменяет устаревшее ревью того же PR. Авторевью использует
+бесплатную модель `cohere/north-mini-code:free` через OpenRouter и
+секрет `OPENROUTER_API_KEY`; интерактивный агент использует OpenCode Go и секрет
+`OPENCODE_GO_API_KEY`. Оба workflow используют `@opencode/cli@2.3.0`.
 
 Для создания PR через `GITHUB_TOKEN` включите **Allow GitHub Actions to create
 and approve pull requests** в Settings → Actions → General → Workflow
