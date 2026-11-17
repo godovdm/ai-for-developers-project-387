@@ -1,13 +1,15 @@
-# The project has no selected license, and the public endpoints accept no input
-# beyond the documented request body.
-# Authentication is intentionally absent in the current single-owner prototype.
+# This file instructs Redocly's linter to ignore the rules contained for specific parts of your API.
+# See https://redocly.com/docs/cli/ for more information.
+#
+# The project has no selected license. Public operations are deliberately
+# anonymous and accept no input beyond the documented request body, so these
+# narrow exceptions stay limited to them. Owner operations declare the
+# owner_session cookie and a 401 response.
 api/generated/openapi.yaml:
   info-license:
     - '#/info'
   operation-4xx-response:
     - '#/paths/~1api~1health/get/responses'
     - '#/paths/~1api~1meeting-types/get/responses'
-  security-defined:
-    - '#/paths/~1api~1health/get'
-    - '#/paths/~1api~1meeting-types/get'
-    - '#/paths/~1api~1meeting-types/post'
+    - '#/paths/~1api~1v1~1owner~1session/get/responses'
+    - '#/paths/~1api~1v1~1owner~1session/delete/responses'

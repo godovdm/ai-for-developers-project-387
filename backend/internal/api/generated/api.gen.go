@@ -6,10 +6,15 @@
 package generated
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 
 	"github.com/oapi-codegen/runtime"
+)
+
+const (
+	OwnerSessionScopes = "OwnerSession.Scopes"
 )
 
 // Defines values for HealthStatusStatus.
@@ -126,6 +131,21 @@ type MeetingTypeV1 struct {
 	Name            string          `json:"name"`
 }
 
+// OwnerLoginRequest Owner credentials supplied at sign-in.
+type OwnerLoginRequest struct {
+	// Password Owner password from the server configuration.
+	Password string `json:"password"`
+}
+
+// OwnerSessionStatus Owner session state visible to the client.
+type OwnerSessionStatus struct {
+	// Authenticated Whether the client has a valid owner session.
+	Authenticated bool `json:"authenticated"`
+
+	// Required Whether owner operations require a session in this deployment.
+	Required bool `json:"required"`
+}
+
 // UpcomingBooking A booking visible to the calendar owner.
 type UpcomingBooking struct {
 	GuestEmail  string        `json:"guestEmail"`
@@ -153,6 +173,9 @@ type CreateBookingJSONRequestBody = CreateBookingRequest
 
 // CreateMeetingTypeV1JSONRequestBody defines body for CreateMeetingTypeV1 for application/json ContentType.
 type CreateMeetingTypeV1JSONRequestBody = CreateMeetingTypeV1Request
+
+// CreateOwnerSessionJSONRequestBody defines body for CreateOwnerSession for application/json ContentType.
+type CreateOwnerSessionJSONRequestBody = OwnerLoginRequest
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
@@ -183,6 +206,15 @@ type ServerInterface interface {
 	// List available starts for a meeting type
 	// (GET /api/v1/meeting-types/{id}/availability)
 	GetAvailability(w http.ResponseWriter, r *http.Request, id string, params GetAvailabilityParams)
+	// End the owner session
+	// (DELETE /api/v1/owner/session)
+	DeleteOwnerSession(w http.ResponseWriter, r *http.Request)
+	// Get the owner session state
+	// (GET /api/v1/owner/session)
+	GetOwnerSession(w http.ResponseWriter, r *http.Request)
+	// Start an owner session
+	// (POST /api/v1/owner/session)
+	CreateOwnerSession(w http.ResponseWriter, r *http.Request)
 }
 
 // ServerInterfaceWrapper converts contexts to parameters.
@@ -225,6 +257,12 @@ func (siw *ServerInterfaceWrapper) ListMeetingTypes(w http.ResponseWriter, r *ht
 // CreateMeetingType operation middleware
 func (siw *ServerInterfaceWrapper) CreateMeetingType(w http.ResponseWriter, r *http.Request) {
 
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, OwnerSessionScopes, []string{})
+
+	r = r.WithContext(ctx)
+
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.CreateMeetingType(w, r)
 	}))
@@ -238,6 +276,12 @@ func (siw *ServerInterfaceWrapper) CreateMeetingType(w http.ResponseWriter, r *h
 
 // ListUpcomingBookings operation middleware
 func (siw *ServerInterfaceWrapper) ListUpcomingBookings(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, OwnerSessionScopes, []string{})
+
+	r = r.WithContext(ctx)
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.ListUpcomingBookings(w, r)
@@ -280,6 +324,12 @@ func (siw *ServerInterfaceWrapper) ListMeetingTypesV1(w http.ResponseWriter, r *
 
 // CreateMeetingTypeV1 operation middleware
 func (siw *ServerInterfaceWrapper) CreateMeetingTypeV1(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, OwnerSessionScopes, []string{})
+
+	r = r.WithContext(ctx)
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.CreateMeetingTypeV1(w, r)
@@ -352,6 +402,48 @@ func (siw *ServerInterfaceWrapper) GetAvailability(w http.ResponseWriter, r *htt
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetAvailability(w, r, id, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteOwnerSession operation middleware
+func (siw *ServerInterfaceWrapper) DeleteOwnerSession(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteOwnerSession(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetOwnerSession operation middleware
+func (siw *ServerInterfaceWrapper) GetOwnerSession(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetOwnerSession(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateOwnerSession operation middleware
+func (siw *ServerInterfaceWrapper) CreateOwnerSession(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateOwnerSession(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -490,6 +582,9 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc("POST "+options.BaseURL+"/api/v1/meeting-types", wrapper.CreateMeetingTypeV1)
 	m.HandleFunc("GET "+options.BaseURL+"/api/v1/meeting-types/{id}", wrapper.GetMeetingTypeV1)
 	m.HandleFunc("GET "+options.BaseURL+"/api/v1/meeting-types/{id}/availability", wrapper.GetAvailability)
+	m.HandleFunc("DELETE "+options.BaseURL+"/api/v1/owner/session", wrapper.DeleteOwnerSession)
+	m.HandleFunc("GET "+options.BaseURL+"/api/v1/owner/session", wrapper.GetOwnerSession)
+	m.HandleFunc("POST "+options.BaseURL+"/api/v1/owner/session", wrapper.CreateOwnerSession)
 
 	return m
 }

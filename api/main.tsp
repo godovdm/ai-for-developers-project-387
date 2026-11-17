@@ -10,6 +10,8 @@ using TypeSpec.Http;
 @server("/", "Same origin as the application")
 namespace Calendar;
 
+model OwnerSession is ApiKeyAuth<ApiKeyLocation.cookie, "owner_session">;
+
 @doc("Health status of the server.")
 model HealthStatus {
   @doc("The server is responding.")
@@ -19,6 +21,7 @@ model HealthStatus {
 @summary("Check that the server is running")
 @route("/api/health")
 @get
+@useAuth(NoAuth)
 op getHealth(): HealthStatus;
 
 @doc("Allowed meeting duration in minutes.")
@@ -81,17 +84,23 @@ model ApiError {
 @summary("List meeting types")
 @route("/api/meeting-types")
 @get
+@useAuth(NoAuth)
 op listMeetingTypes(): MeetingType[];
 
 @summary("Create a meeting type")
 @route("/api/meeting-types")
 @post
+@useAuth(OwnerSession)
 op createMeetingType(@body body: CreateMeetingTypeRequest):
   | {
       @statusCode statusCode: 201;
       @body body: MeetingType;
     }
-  | ApiError;
+  | ApiError
+  | {
+      @statusCode statusCode: 401;
+      @body body: ApiErrorV1;
+    };
 
 @doc("Meeting type creation using an owner-supplied identifier.")
 model CreateMeetingTypeV1Request {
@@ -130,6 +139,7 @@ model ApiErrorV1 {
 @summary("List meeting types using API v1")
 @route("/api/v1/meeting-types")
 @get
+@useAuth(NoAuth)
 op listMeetingTypesV1():
   | MeetingTypeListV1
   | {
@@ -140,6 +150,7 @@ op listMeetingTypesV1():
 @summary("Create a meeting type using API v1")
 @route("/api/v1/meeting-types")
 @post
+@useAuth(OwnerSession)
 op createMeetingTypeV1(@body body: CreateMeetingTypeV1Request):
   | {
       @statusCode statusCode: 201;
@@ -152,11 +163,16 @@ op createMeetingTypeV1(@body body: CreateMeetingTypeV1Request):
   | {
       @statusCode statusCode: 409;
       @body body: ApiErrorV1;
+    }
+  | {
+      @statusCode statusCode: 401;
+      @body body: ApiErrorV1;
     };
 
 @summary("Get a meeting type using API v1")
 @route("/api/v1/meeting-types/{id}")
 @get
+@useAuth(NoAuth)
 op getMeetingTypeV1(@path id: string):
   | MeetingTypeV1
   | {
@@ -178,6 +194,7 @@ model Availability {
 @summary("List available starts for a meeting type")
 @route("/api/v1/meeting-types/{id}/availability")
 @get
+@useAuth(NoAuth)
 op getAvailability(@path id: string, @query from?: string, @query to?: string):
   | Availability
   | {
@@ -202,6 +219,7 @@ model BookingConfirmation {
 @summary("Book an available meeting")
 @route("/api/v1/bookings")
 @post
+@useAuth(NoAuth)
 op createBooking(@body body: CreateBookingRequest):
   | {
       @statusCode statusCode: 201;
@@ -235,9 +253,60 @@ model UpcomingBookingList {
 @summary("List upcoming bookings")
 @route("/api/v1/bookings")
 @get
+@useAuth(OwnerSession)
 op listUpcomingBookings():
   | UpcomingBookingList
   | {
       @statusCode statusCode: 400;
       @body body: ApiErrorV1;
+    }
+  | {
+      @statusCode statusCode: 401;
+      @body body: ApiErrorV1;
     };
+
+@doc("Owner session state visible to the client.")
+model OwnerSessionStatus {
+  @doc("Whether owner operations require a session in this deployment.")
+  required: boolean;
+
+  @doc("Whether the client has a valid owner session.")
+  authenticated: boolean;
+}
+
+@doc("Owner credentials supplied at sign-in.")
+model OwnerLoginRequest {
+  @doc("Owner password from the server configuration.")
+  password: string;
+}
+
+@summary("Get the owner session state")
+@route("/api/v1/owner/session")
+@get
+@useAuth(NoAuth)
+op getOwnerSession(): OwnerSessionStatus;
+
+@summary("Start an owner session")
+@route("/api/v1/owner/session")
+@post
+@useAuth(NoAuth)
+op createOwnerSession(@body body: OwnerLoginRequest):
+  | {
+      @statusCode statusCode: 204;
+    }
+  | {
+      @statusCode statusCode: 400;
+      @body body: ApiErrorV1;
+    }
+  | {
+      @statusCode statusCode: 401;
+      @body body: ApiErrorV1;
+    };
+
+@summary("End the owner session")
+@route("/api/v1/owner/session")
+@delete
+@useAuth(NoAuth)
+op deleteOwnerSession(): {
+  @statusCode statusCode: 204;
+};
