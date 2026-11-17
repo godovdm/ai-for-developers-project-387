@@ -1,9 +1,11 @@
 import { expect, test } from "@playwright/test";
+import { loginOwnerRequest } from "./support";
 
 test("guest selects an available start", async ({
   page,
   request,
 }, testInfo) => {
+  await loginOwnerRequest(request);
   const id = `availability-${testInfo.project.name}`;
   const created = await request.post("/api/v1/meeting-types", {
     data: { id, name: "Выбор времени", description: "", durationMinutes: 60 },
