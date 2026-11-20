@@ -9,6 +9,10 @@ on:
   pull_request_review_comment:
     types: [created]
 
+# Only authorised human commands are counted; this immutable run metadata is
+# used by the budget gate, independently of comments made by the agent.
+run-name: ${{ github.event.comment.user.type != 'Bot' && contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.comment.author_association) && (startsWith(github.event.comment.body, '/oc') || startsWith(github.event.comment.body, '/opencode') || contains(github.event.comment.body, ' /oc') || contains(github.event.comment.body, ' /opencode')) && (github.event.issue.pull_request != null || github.event.pull_request != null) && format('oc-pr-{0}', github.event.issue.number || github.event.pull_request.number) || 'opencode-other' }}
+
 concurrency:
   group: opencode-${{ github.event.issue.number || github.event.pull_request.number }}
   cancel-in-progress: false
@@ -26,16 +30,37 @@ jobs:
        contains(github.event.comment.body, ' /oc') ||
        contains(github.event.comment.body, ' /opencode'))
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 35
     permissions:
       contents: write
       issues: write
       pull-requests: write
+      actions: read
+    outputs:
+      reason: ${{ steps.classify.outputs.reason }}
     steps:
       - name: Check out repository
         uses: actions/checkout@v6
         with:
           fetch-depth: 1
+
+      - name: Check per-PR budget
+        id: budget
+        if: github.event.issue.pull_request != null || github.event.pull_request != null
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.issue.number || github.event.pull_request.number }}
+        run: |
+          rc=0
+          bash scripts/check-opencode-budget.sh || rc=$?
+          case "$rc" in
+            0) echo 'reason=ok' >> "$GITHUB_OUTPUT" ;;
+            2) echo 'reason=limit_exhausted' >> "$GITHUB_OUTPUT"; exit 1 ;;
+            *) echo 'reason=infra' >> "$GITHUB_OUTPUT"; exit 1 ;;
+          esac
+
+      - name: Prepare trusted timeout wrapper
+        run: cp scripts/run-with-timeout.py "$RUNNER_TEMP/run-with-timeout.py"
 
       - name: Verify pull request source
         if: github.event.issue.pull_request != null || github.event.pull_request != null
@@ -61,6 +86,7 @@ jobs:
         env:
           OPENCODE_GO_API_KEY: ${{ secrets.OPENCODE_GO_API_KEY }}
         run: |
+          test -n "$OPENCODE_GO_API_KEY"
           printf '[{"id":"cred_ci_opencode_go","integrationID":"opencode-go","label":"API key","active":true,"value":{"type":"key","key":"%s"}}]' \
             "$OPENCODE_GO_API_KEY" | opencode auth import --standalone
 
@@ -71,6 +97,7 @@ jobs:
         run: gh pr checkout ${{ github.event.issue.number || github.event.pull_request.number }}
 
       - name: Run OpenCode
+        id: agent
         env:
           GH_TOKEN: ${{ github.token }}
           ISSUE: ${{ github.event.issue.number || github.event.pull_request.number }}
@@ -109,6 +136,59 @@ jobs:
           EOF
           )
 
-          opencode run --standalone --auto \
+          set +e
+          : > "$RUNNER_TEMP/opencode-timeout-marker"
+          python3 "$RUNNER_TEMP/run-with-timeout.py" 1200 30 "$RUNNER_TEMP/opencode-timeout-marker" opencode run --standalone --auto \
             --model opencode-go/deepseek-v4.1-flash \
             "$PROMPT"
+          rc=$?
+          if [ -s "$RUNNER_TEMP/opencode-timeout-marker" ]; then
+            echo 'reason=timeout' >> "$GITHUB_OUTPUT"
+          elif [ "$rc" -ne 0 ]; then
+            echo 'reason=agent_failed' >> "$GITHUB_OUTPUT"
+          else
+            echo 'reason=ok' >> "$GITHUB_OUTPUT"
+          fi
+          exit "$rc"
+
+      - name: Classify failure
+        id: classify
+        if: always()
+        env:
+          BUDGET_REASON: ${{ steps.budget.outputs.reason }}
+          AGENT_REASON: ${{ steps.agent.outputs.reason }}
+          AGENT_OUTCOME: ${{ steps.agent.outcome }}
+        run: |
+          if [ "$BUDGET_REASON" = limit_exhausted ]; then reason=limit_exhausted
+          elif [ "$AGENT_REASON" = timeout ]; then reason=timeout
+          elif [ "$AGENT_REASON" = agent_failed ]; then reason=agent_failed
+          elif [ "$AGENT_OUTCOME" = success ]; then reason=ok
+          else reason=infra
+          fi
+          echo "reason=$reason" >> "$GITHUB_OUTPUT"
+
+  report:
+    needs: opencode
+    if: always() && needs.opencode.result != 'skipped' && needs.opencode.outputs.reason != 'ok'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: read
+    steps:
+      - name: Report failure without the model
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REASON: ${{ needs.opencode.outputs.reason }}
+          PR_NUMBER: ${{ github.event.issue.number || github.event.pull_request.number }}
+          IS_PR: ${{ github.event.issue.pull_request != null || github.event.pull_request != null }}
+        run: |
+          [ -n "$REASON" ] || REASON=infra
+          SHA=unknown
+          if [ "$IS_PR" = true ]; then
+            SHA=$(gh api "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER" --jq '.head.sha') || SHA=unknown
+          fi
+          printf 'Нужен человек. Причина: %s. Последний SHA: %s. [Логи запуска](%s/%s/actions/runs/%s/attempts/%s). Неопределённую причину проверьте по логам.\n' \
+            "$REASON" "$SHA" "$GITHUB_SERVER_URL" "$GITHUB_REPOSITORY" "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" > "$RUNNER_TEMP/report.md"
+          gh api "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/comments" --method POST -f "body=$(cat "$RUNNER_TEMP/report.md")"
