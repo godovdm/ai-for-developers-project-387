@@ -246,6 +246,24 @@ permissions. PR, созданный `GITHUB_TOKEN`, может потребов�
 проверки не стартовали. Issue, созданное этим токеном, обычно не запускает
 `issues` workflow; GitHub App может иметь другое поведение.
 
+## Регулярный аудит Lighthouse
+
+Workflow [Lighthouse audit](.github/workflows/lighthouse-audit.yml) запускается
+на каждый день в 03:17 UTC (06:17 по московскому времени). Его можно запустить вручную: откройте **Actions** →
+**Lighthouse audit** → **Run workflow** и выберите `training_mode`. Значение
+`true` включает учебный режим, `false` — обычный аудит приложения.
+
+В настройках репозитория **Settings** → **Secrets and variables** → **Actions** →
+**Variables** задайте `APP_URL` — полный HTTP(S)-адрес приложения. Для
+опубликованного демо используется `https://hexlet-calendar-godov.onrender.com`.
+Для запуска агента также нужен секрет `OPENCODE_GO_API_KEY`.
+
+Учебный режим использует подготовленный отчёт с одной явно помеченной находкой;
+он предназначен для проверки создания issue и поиска дублей. Обычный режим
+собирает отчёт Lighthouse для `APP_URL`. Отчёт сохраняется вне рабочего дерева
+на раннере. Его можно скачать из раздела **Artifacts** конкретного прогона в Actions, а
+вывод агента посмотреть в сводке прогона и журнале Actions.
+
 ## Выпуск версии
 
 [Release Please](.github/workflows/release-please.yml) запускается после push в
