@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.3.0](https://github.com/godovdm/ai-for-developers-project-387/compare/meeting-calendar-v0.2.0...meeting-calendar-v0.3.0) (2026-11-21)
+
+
+### Features
+
+* добавить сессионный вход владельца ([#15](https://github.com/godovdm/ai-for-developers-project-387/issues/15)) ([189c6a8](https://github.com/godovdm/ai-for-developers-project-387/commit/189c6a80718c9c75a33191d6cc237fe390c0ad1c))
+
+
+### Bug Fixes
+
+* **ci:** разрешить отчёт об исчерпании лимита ([#19](https://github.com/godovdm/ai-for-developers-project-387/issues/19)) ([18b2c8e](https://github.com/godovdm/ai-for-developers-project-387/commit/18b2c8e6b8207bc952bac75c68cb7412ff4f0635))
+
 ## [0.2.0](https://github.com/godovdm/ai-for-developers-project-386/compare/meeting-calendar-v0.1.0...meeting-calendar-v0.2.0) (2026-11-13)
 
 ### Features
