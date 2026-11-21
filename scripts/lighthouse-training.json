@@ -1,0 +1,21 @@
+{
+  "training": true,
+  "lighthouseVersion": "training",
+  "audits": {
+    "training-example-finding": {
+      "id": "training-example-finding",
+      "title": "Учебная находка: пример проблемы доступности",
+      "description": "Учебный пример: проверьте доступность подписей элементов формы.",
+      "score": 0,
+      "scoreDisplayMode": "binary"
+    }
+  },
+  "categories": {
+    "accessibility": {
+      "id": "accessibility",
+      "title": "Accessibility",
+      "score": 0,
+      "auditRefs": [{ "id": "training-example-finding", "weight": 1 }]
+    }
+  }
+}

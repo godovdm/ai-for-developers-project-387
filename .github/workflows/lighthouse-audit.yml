@@ -1,0 +1,79 @@
+name: Lighthouse audit
+
+on:
+  schedule:
+    - cron: '17 3 * * *'
+  workflow_dispatch:
+    inputs:
+      training_mode:
+        description: Use the training report
+        type: boolean
+        required: true
+        default: false
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: lighthouse-audit
+  cancel-in-progress: false
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      APP_URL: ${{ vars.APP_URL }}
+      GH_TOKEN: ${{ github.token }}
+      TRAINING_MODE: ${{ inputs.training_mode || false }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Collect report
+        id: report
+        run: |
+          report=$(node scripts/collect-lighthouse.mjs)
+          printf 'path=%s\n' "$report" >> "$GITHUB_OUTPUT"
+
+      - name: Upload report
+        uses: actions/upload-artifact@v4
+        with:
+          name: lighthouse-report
+          path: ${{ steps.report.outputs.path }}
+          if-no-files-found: error
+
+      - name: Install OpenCode
+        run: npm install --global @opencode/cli@2.3.0
+
+      - name: Connect OpenCode Go
+        env:
+          OPENCODE_GO_API_KEY: ${{ secrets.OPENCODE_GO_API_KEY }}
+        run: |
+          printf '[{"id":"cred_ci_opencode_go","integrationID":"opencode-go","label":"API key","active":true,"value":{"type":"key","key":"%s"}}]' \
+            "$OPENCODE_GO_API_KEY" | opencode auth import --standalone
+
+      - name: Analyze report
+        env:
+          LIGHTHOUSE_REPORT: ${{ steps.report.outputs.path }}
+          GITHUB_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -o pipefail
+          scripts/run-lighthouse-agent.sh 2>&1 | tee "$RUNNER_TEMP/lighthouse-agent.log"
+
+      - name: Publish analysis summary
+        if: always()
+        env:
+          REPORT_OUTCOME: ${{ steps.report.outcome }}
+        run: |
+          {
+            echo '## Lighthouse audit'
+            if [ -f "$RUNNER_TEMP/lighthouse-agent.log" ]; then
+              cat "$RUNNER_TEMP/lighthouse-agent.log"
+            elif [ "$REPORT_OUTCOME" != success ]; then
+              echo 'Нет данных: не удалось собрать отчёт Lighthouse.'
+            else
+              echo 'Анализ отчёта не выполнен. Проверьте журнал прогона.'
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
